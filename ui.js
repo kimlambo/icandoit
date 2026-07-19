@@ -53,6 +53,7 @@ const ui = (function () {
       <tr data-ticker="${s.ticker}">
         <td class="ticker-cell">${s.ticker}${s.nameKo ? ` <span class="ticker-name-ko">${s.nameKo}</span>` : ""}</td>
         <td class="name-cell">${s.name}</td>
+        <td class="sector-cell">${s.sector ? `<span class="sector-tag">${s.sector}</span>` : "-"}</td>
         <td class="num">${formatPriceDisplay(s.price, currencyMode, usdKrwRate)}</td>
         <td class="num ${priceChangeClass(s.changePercent)}">${formatPercent(s.changePercent)}</td>
         <td class="num">${formatVolume(s.volume)}</td>
@@ -76,6 +77,7 @@ const ui = (function () {
       <div class="modal-header-top">
         <span class="modal-ticker">${stock.ticker}${stock.nameKo ? ` <span class="modal-ticker-ko">${stock.nameKo}</span>` : ""}</span>
         <span class="modal-name">${stock.name}</span>
+        ${stock.sector ? `<span class="sector-tag">${stock.sector}</span>` : ""}
       </div>
       <div class="modal-price-row">${priceRow}</div>`;
   }
@@ -229,9 +231,11 @@ const ui = (function () {
       </div>`;
   }
 
-  function renderSearchResults(containerEl, results) {
+  function renderSearchResults(containerEl, results, rateLimited) {
     if (!results || results.length === 0) {
-      containerEl.innerHTML = `<div class="search-result-empty">검색 결과가 없습니다.</div>`;
+      containerEl.innerHTML = rateLimited
+        ? `<div class="search-result-empty">API 호출 한도를 일시적으로 초과했습니다. 잠시 후 다시 시도해주세요.</div>`
+        : `<div class="search-result-empty">검색 결과가 없습니다.</div>`;
       return;
     }
     containerEl.innerHTML = results

@@ -36,6 +36,23 @@ const dataService = (function () {
     return String(n);
   }
 
+  // Finnhub의 finnhubIndustry 원문(영문)을 우리가 쓰는 한국어 산업 카테고리로 매핑.
+  // 정확한 전체 목록을 알 수 없어 키워드 포함 여부로 느슨하게 매칭하고, 매칭 실패 시 "기타".
+  function mapIndustryToSector(industry) {
+    if (!industry) return "기타";
+    const s = industry.toLowerCase();
+    if (s.includes("semiconductor")) return "반도체";
+    if (s.includes("auto")) return "자동차";
+    if (s.includes("bank") || s.includes("insurance") || s.includes("financ")) return "금융";
+    if (s.includes("health") || s.includes("biotech") || s.includes("pharma") || s.includes("medical")) return "헬스케어";
+    if (s.includes("apparel") || s.includes("footwear") || s.includes("sport")) return "스포츠/의류";
+    if (s.includes("oil") || s.includes("gas") || s.includes("energy")) return "에너지";
+    if (s.includes("media") || s.includes("entertainment")) return "미디어/엔터";
+    if (s.includes("retail") || s.includes("e-commerce") || s.includes("consumer")) return "소비재";
+    if (s.includes("software") || s.includes("technology") || s.includes("internet") || s.includes("hardware")) return "기술";
+    return "기타";
+  }
+
   async function fetchLiveQuote(ticker) {
     if (!hasApiKey()) return null;
     try {
@@ -75,7 +92,8 @@ const dataService = (function () {
       if (!profile || !profile.name) return null;
       return {
         name: profile.name,
-        marketCap: profile.marketCapitalization ? profile.marketCapitalization * 1e6 : null
+        marketCap: profile.marketCapitalization ? profile.marketCapitalization * 1e6 : null,
+        sector: mapIndustryToSector(profile.finnhubIndustry)
       };
     } catch (err) {
       console.warn(`[dataService] ${ticker} 회사 프로필 조회 중 오류`, err);
@@ -159,8 +177,27 @@ const dataService = (function () {
     }
   }
 
+  function chunk(arr, size) {
+    const out = [];
+    for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+    return out;
+  }
+
+  function delay(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  // 관심 종목이 많아지면서(현재 80개 이상) 한 번에 전부 fetch하면 Finnhub 분당 호출
+  // 한도(60회)를 순간적으로 초과해 429가 나고, 같은 API 키를 쓰는 검색 등 다른 기능까지
+  // 덩달아 막힌다. 20개씩 나눠 호출 사이에 약간의 지연을 두어 부담을 분산시킨다.
   async function getWatchlist() {
-    return Promise.all(MOCK_WATCHLIST.map(withLiveQuote));
+    const batches = chunk(MOCK_WATCHLIST, 20);
+    const results = [];
+    for (let i = 0; i < batches.length; i++) {
+      if (i > 0) await delay(1100);
+      results.push(...(await Promise.all(batches[i].map(withLiveQuote))));
+    }
+    return results;
   }
 
   function looksLikeDerivativeTicker(ticker) {
@@ -185,7 +222,8 @@ const dataService = (function () {
             changePercent: parseFloat(item.change_percentage),
             changeAmount: parseFloat(item.change_amount),
             volume: parseFloat(item.volume),
-            marketCap: profile.marketCap || null
+            marketCap: profile.marketCap || null,
+            sector: profile.sector || "기타"
           };
         })
       );
@@ -199,8 +237,17 @@ const dataService = (function () {
     return results;
   }
 
+  let moversIsLive = null; // null=아직 시도 전, true=실시간 스크리너, false=mock 폴백
+
+  function isMoversLive() {
+    return moversIsLive;
+  }
+
   function fetchTopMoversScreener() {
-    if (!hasAlphaVantageKey()) return Promise.resolve(null);
+    if (!hasAlphaVantageKey()) {
+      moversIsLive = false;
+      return Promise.resolve(null);
+    }
     if (moversScreenerPromise) return moversScreenerPromise;
 
     moversScreenerPromise = (async () => {
@@ -210,20 +257,24 @@ const dataService = (function () {
         );
         if (!res.ok) {
           console.warn(`[dataService] 급상승/급하락 스크리너 조회 실패 (HTTP ${res.status}), mock 목록 사용`);
+          moversIsLive = false;
           return null;
         }
         const data = await res.json();
         if (!Array.isArray(data.top_gainers) || !Array.isArray(data.top_losers)) {
           console.warn(`[dataService] 스크리너 응답에 데이터 없음(호출 한도 초과 가능), mock 목록 사용`, data);
+          moversIsLive = false;
           return null;
         }
         const [gainers, losers] = await Promise.all([
           enrichAndFilterMovers(data.top_gainers, 10),
           enrichAndFilterMovers(data.top_losers, 10)
         ]);
+        moversIsLive = true;
         return { gainers, losers };
       } catch (err) {
         console.warn(`[dataService] 스크리너 조회 중 오류, mock 목록 사용`, err);
+        moversIsLive = false;
         return null;
       }
     })();
@@ -257,7 +308,8 @@ const dataService = (function () {
       changePercent: quote ? quote.changePercent : null,
       changeAmount: quote ? quote.changeAmount : null,
       volume: null,
-      marketCap: (profile && profile.marketCap) || null
+      marketCap: (profile && profile.marketCap) || null,
+      sector: (profile && profile.sector) || null
     };
   }
 
@@ -330,12 +382,19 @@ const dataService = (function () {
     }
   }
 
+  let searchRateLimited = false;
+
+  function wasSearchRateLimited() {
+    return searchRateLimited;
+  }
+
   async function searchSymbols(query) {
     if (!hasApiKey() || !query || query.trim().length < 1) return [];
     try {
       const res = await fetch(
         `https://finnhub.io/api/v1/search?q=${encodeURIComponent(query.trim())}&token=${FINNHUB_API_KEY}`
       );
+      searchRateLimited = res.status === 429;
       if (!res.ok) return [];
       const data = await res.json();
       const results = Array.isArray(data.result) ? data.result : [];
@@ -360,6 +419,8 @@ const dataService = (function () {
     getRiskFlags,
     searchSymbols,
     getUsdKrwRate,
-    getPriceHistory
+    getPriceHistory,
+    isMoversLive,
+    wasSearchRateLimited
   };
 })();

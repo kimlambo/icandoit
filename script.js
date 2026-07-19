@@ -7,9 +7,12 @@
   let usdKrwRate = null;
   const tableData = { watchlist: [], gainers: [], losers: [] };
   const sortState = { watchlist: { key: null, direction: null }, gainers: { key: null, direction: null }, losers: { key: null, direction: null } };
+  const filterState = { watchlist: "", gainers: "", losers: "" };
 
   function renderTable(panel) {
-    ui.renderStockTable(document.querySelector(`[data-panel="${panel}"] tbody`), tableData[panel], currencyMode, usdKrwRate);
+    const sector = filterState[panel];
+    const rows = sector ? tableData[panel].filter((s) => s.sector === sector) : tableData[panel];
+    ui.renderStockTable(document.querySelector(`[data-panel="${panel}"] tbody`), rows, currencyMode, usdKrwRate);
   }
 
   async function loadAndRenderTables() {
@@ -20,6 +23,10 @@
     renderTable("watchlist");
     renderTable("gainers");
     renderTable("losers");
+
+    const isLive = dataService.isMoversLive();
+    document.getElementById("gainers-live-note").classList.toggle("hidden", isLive !== false);
+    document.getElementById("losers-live-note").classList.toggle("hidden", isLive !== false);
   }
 
   function sortByColumn(panel, key) {
@@ -119,6 +126,15 @@
     });
   }
 
+  function bindSectorFilters() {
+    document.querySelectorAll(".sector-filter").forEach((select) => {
+      select.addEventListener("change", () => {
+        filterState[select.dataset.panel] = select.value;
+        renderTable(select.dataset.panel);
+      });
+    });
+  }
+
   function bindSearch() {
     const input = document.getElementById("search-input");
     const results = document.getElementById("search-results");
@@ -139,7 +155,7 @@
       debounceTimer = setTimeout(async () => {
         const matches = await dataService.searchSymbols(query);
         if (input.value.trim() !== query) return;
-        ui.renderSearchResults(results, matches);
+        ui.renderSearchResults(results, matches, dataService.wasSearchRateLimited());
         results.classList.remove("hidden");
       }, 350);
     });
@@ -206,6 +222,7 @@
     bindEvents();
     bindSearch();
     bindCurrencyToggle();
+    bindSectorFilters();
 
     usdKrwRate = await dataService.getUsdKrwRate();
     if (!usdKrwRate) {
