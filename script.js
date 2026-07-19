@@ -78,15 +78,17 @@
     const earnings = await dataService.getEarnings(ticker);
     const sentiment = await dataService.getSentiment(ticker);
     const risk = await dataService.getRiskFlags(ticker);
+    const priceHistory = await dataService.getPriceHistory(ticker);
 
     currentStockDetail = stock;
     ui.renderModalHeader(document.getElementById("modal-header"), stock, currencyMode, usdKrwRate);
+    ui.renderChartTab(document.getElementById("modal-panel-chart"), priceHistory);
     ui.renderNewsTab(document.getElementById("modal-panel-news"), news);
     ui.renderEarningsTab(document.getElementById("modal-panel-earnings"), earnings);
     ui.renderSentimentTab(document.getElementById("modal-panel-sentiment"), sentiment);
     ui.renderRiskTab(document.getElementById("modal-panel-risk"), risk);
 
-    switchModalTab("news");
+    switchModalTab("chart");
 
     const modal = document.getElementById("stock-modal");
     modal.classList.remove("hidden");

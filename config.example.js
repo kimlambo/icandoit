@@ -5,3 +5,6 @@ const FINNHUB_API_KEY = "";
 
 /* https://www.alphavantage.co/support/#api-key 에서 발급 (무료 티어 하루 25회 제한) */
 const ALPHA_VANTAGE_API_KEY = "";
+
+/* https://twelvedata.com/pricing 에서 발급 (무료 티어 하루 800회) */
+const TWELVE_DATA_API_KEY = "";

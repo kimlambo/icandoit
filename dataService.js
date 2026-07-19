@@ -21,6 +21,10 @@ const dataService = (function () {
     return typeof ALPHA_VANTAGE_API_KEY !== "undefined" && !!ALPHA_VANTAGE_API_KEY;
   }
 
+  function hasTwelveDataKey() {
+    return typeof TWELVE_DATA_API_KEY !== "undefined" && !!TWELVE_DATA_API_KEY;
+  }
+
   function toDateStr(d) {
     return d.toISOString().slice(0, 10);
   }
@@ -302,6 +306,30 @@ const dataService = (function () {
     return usdKrwRatePromise;
   }
 
+  async function getPriceHistory(ticker) {
+    if (!hasTwelveDataKey()) return null;
+    try {
+      const res = await fetch(
+        `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(ticker)}&interval=1day&outputsize=90&apikey=${TWELVE_DATA_API_KEY}`
+      );
+      if (!res.ok) {
+        console.warn(`[dataService] ${ticker} 차트 조회 실패 (HTTP ${res.status})`);
+        return null;
+      }
+      const data = await res.json();
+      if (!data.values || !Array.isArray(data.values)) {
+        console.warn(`[dataService] ${ticker} 차트 데이터 없음`, data);
+        return null;
+      }
+      return data.values
+        .map((v) => ({ date: v.datetime, close: parseFloat(v.close) }))
+        .reverse();
+    } catch (err) {
+      console.warn(`[dataService] ${ticker} 차트 조회 중 오류`, err);
+      return null;
+    }
+  }
+
   async function searchSymbols(query) {
     if (!hasApiKey() || !query || query.trim().length < 1) return [];
     try {
@@ -331,6 +359,7 @@ const dataService = (function () {
     getSentiment,
     getRiskFlags,
     searchSymbols,
-    getUsdKrwRate
+    getUsdKrwRate,
+    getPriceHistory
   };
 })();

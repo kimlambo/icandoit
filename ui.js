@@ -188,6 +188,47 @@ const ui = (function () {
       .join("");
   }
 
+  function renderChartTab(containerEl, priceHistory) {
+    if (!priceHistory || priceHistory.length < 2) {
+      containerEl.innerHTML = `<p class="empty-state">차트 데이터를 불러올 수 없습니다.</p>`;
+      return;
+    }
+
+    const closes = priceHistory.map((p) => p.close);
+    const min = Math.min(...closes);
+    const max = Math.max(...closes);
+    const range = max - min || 1;
+    const width = 600;
+    const height = 220;
+    const padding = 10;
+
+    const points = priceHistory
+      .map((p, i) => {
+        const x = padding + (i / (priceHistory.length - 1)) * (width - padding * 2);
+        const y = padding + (1 - (p.close - min) / range) * (height - padding * 2);
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      })
+      .join(" ");
+
+    const isUp = closes[closes.length - 1] >= closes[0];
+    const lineColor = isUp ? "var(--color-positive)" : "var(--color-negative)";
+    const first = priceHistory[0];
+    const last = priceHistory[priceHistory.length - 1];
+
+    containerEl.innerHTML = `
+      <div class="chart-range-label">
+        <span>${first.date}</span>
+        <span>${last.date}</span>
+      </div>
+      <svg viewBox="0 0 ${width} ${height}" class="price-chart" preserveAspectRatio="none">
+        <polyline points="${points}" fill="none" style="stroke:${lineColor}" stroke-width="2" />
+      </svg>
+      <div class="chart-price-range">
+        <span>최저 $${min.toFixed(2)}</span>
+        <span>최고 $${max.toFixed(2)}</span>
+      </div>`;
+  }
+
   function renderSearchResults(containerEl, results) {
     if (!results || results.length === 0) {
       containerEl.innerHTML = `<div class="search-result-empty">검색 결과가 없습니다.</div>`;
@@ -218,6 +259,7 @@ const ui = (function () {
     renderEarningsTab,
     renderSentimentTab,
     renderRiskTab,
+    renderChartTab,
     renderSearchResults
   };
 })();
