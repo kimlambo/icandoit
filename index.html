@@ -36,6 +36,7 @@
     <button class="tab-btn active" data-tab="premarket" role="tab" aria-selected="true">프리마켓</button>
     <button class="tab-btn" data-tab="regular" role="tab" aria-selected="false">정규장</button>
     <button class="tab-btn" data-tab="gainers" role="tab" aria-selected="false">급상승 종목</button>
+    <button class="tab-btn" data-tab="losers" role="tab" aria-selected="false">급하락 종목</button>
   </nav>
 
   <main class="tab-panels">
@@ -78,6 +79,24 @@
     <section id="panel-gainers" class="tab-panel" role="tabpanel">
       <div class="table-scroll">
         <table class="stock-table" data-panel="gainers">
+          <thead>
+            <tr>
+              <th>티커</th>
+              <th>종목명</th>
+              <th class="num">현재가</th>
+              <th class="num">등락률</th>
+              <th class="num">거래량</th>
+              <th class="num">시가총액</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="panel-losers" class="tab-panel" role="tabpanel">
+      <div class="table-scroll">
+        <table class="stock-table" data-panel="losers">
           <thead>
             <tr>
               <th>티커</th>

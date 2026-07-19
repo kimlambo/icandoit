@@ -11,8 +11,14 @@
    API 요청이 실패/키 없음/데이터 없음이면 조용히 mock 값(있으면)으로 폴백한다. */
 
 const dataService = (function () {
+  let moversScreenerPromise = null;
+
   function hasApiKey() {
     return typeof FINNHUB_API_KEY !== "undefined" && !!FINNHUB_API_KEY;
+  }
+
+  function hasAlphaVantageKey() {
+    return typeof ALPHA_VANTAGE_API_KEY !== "undefined" && !!ALPHA_VANTAGE_API_KEY;
   }
 
   function toDateStr(d) {
@@ -157,8 +163,84 @@ const dataService = (function () {
     return Promise.all(MOCK_REGULAR.map(withLiveQuote));
   }
 
+  function looksLikeDerivativeTicker(ticker) {
+    // 나스닥 5자리 티커의 마지막 글자는 증권 종류를 뜻함: W=워런트, R=권리, U=유닛.
+    // 예: PSNYW(워런트), BPACR(권리) 등 일반 보통주가 아닌 파생 증권을 제외.
+    return ticker.length === 5 && /[WUR]$/.test(ticker);
+  }
+
+  async function enrichAndFilterMovers(rawItems, limit) {
+    const candidates = (rawItems || []).filter((item) => !looksLikeDerivativeTicker(item.ticker));
+    const results = [];
+    for (let i = 0; i < candidates.length && results.length < limit; i += 5) {
+      const batch = candidates.slice(i, i + 5);
+      const enriched = await Promise.all(
+        batch.map(async (item) => {
+          const profile = await fetchCompanyProfile(item.ticker);
+          if (!profile || !profile.name) return null;
+          return {
+            ticker: item.ticker,
+            name: profile.name,
+            price: parseFloat(item.price),
+            changePercent: parseFloat(item.change_percentage),
+            changeAmount: parseFloat(item.change_amount),
+            volume: parseFloat(item.volume),
+            marketCap: profile.marketCap || "-"
+          };
+        })
+      );
+      enriched.forEach((s) => {
+        if (s && results.length < limit) results.push(s);
+      });
+    }
+    if (results.length < limit) {
+      console.warn(`[dataService] 등록된 회사 정보가 있는 종목이 ${results.length}개만 확보됨 (목표 ${limit}개)`);
+    }
+    return results;
+  }
+
+  function fetchTopMoversScreener() {
+    if (!hasAlphaVantageKey()) return Promise.resolve(null);
+    if (moversScreenerPromise) return moversScreenerPromise;
+
+    moversScreenerPromise = (async () => {
+      try {
+        const res = await fetch(
+          `https://www.alphavantage.co/query?function=TOP_GAINERS_LOSERS&apikey=${ALPHA_VANTAGE_API_KEY}`
+        );
+        if (!res.ok) {
+          console.warn(`[dataService] 급상승/급하락 스크리너 조회 실패 (HTTP ${res.status}), mock 목록 사용`);
+          return null;
+        }
+        const data = await res.json();
+        if (!Array.isArray(data.top_gainers) || !Array.isArray(data.top_losers)) {
+          console.warn(`[dataService] 스크리너 응답에 데이터 없음(호출 한도 초과 가능), mock 목록 사용`, data);
+          return null;
+        }
+        const [gainers, losers] = await Promise.all([
+          enrichAndFilterMovers(data.top_gainers, 10),
+          enrichAndFilterMovers(data.top_losers, 10)
+        ]);
+        return { gainers, losers };
+      } catch (err) {
+        console.warn(`[dataService] 스크리너 조회 중 오류, mock 목록 사용`, err);
+        return null;
+      }
+    })();
+
+    return moversScreenerPromise;
+  }
+
   async function getTopGainers() {
+    const live = await fetchTopMoversScreener();
+    if (live) return live.gainers;
     return Promise.all(MOCK_GAINERS.map(withLiveQuote));
+  }
+
+  async function getTopLosers() {
+    const live = await fetchTopMoversScreener();
+    if (live) return live.losers;
+    return Promise.all(MOCK_LOSERS.map(withLiveQuote));
   }
 
   async function getStockDetail(ticker) {
@@ -226,6 +308,7 @@ const dataService = (function () {
     getPremarketMovers,
     getRegularMovers,
     getTopGainers,
+    getTopLosers,
     getStockDetail,
     getNews,
     getEarnings,

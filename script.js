@@ -7,10 +7,12 @@
     const premarket = await dataService.getPremarketMovers();
     const regular = await dataService.getRegularMovers();
     const gainers = await dataService.getTopGainers();
+    const losers = await dataService.getTopLosers();
 
     ui.renderStockTable(document.querySelector('[data-panel="premarket"] tbody'), premarket);
     ui.renderStockTable(document.querySelector('[data-panel="regular"] tbody'), regular);
     ui.renderStockTable(document.querySelector('[data-panel="gainers"] tbody'), gainers);
+    ui.renderStockTable(document.querySelector('[data-panel="losers"] tbody'), losers);
   }
 
   function setLastUpdated() {

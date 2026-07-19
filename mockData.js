@@ -337,6 +337,54 @@ const MOCK_STOCKS_BY_TICKER = {
       delisting: { level: "low", description: "상장폐지 관련 특이사항 없음." },
       shareDilutionRisk: { level: "low", description: "대형주로 신주 발행을 통한 희석 위험 낮음." }
     }
+  },
+  LCID: {
+    ticker: "LCID",
+    name: "Lucid Group, Inc.",
+    price: 2.85,
+    changePercent: -5.18,
+    changeAmount: -0.16,
+    volume: 38900000,
+    marketCap: "6.4B",
+    news: [
+      { id: "n1", headline: "Lucid cuts full-year delivery guidance again", source: "Reuters", timestamp: "2026-07-19T07:25:00Z", url: "#" },
+      { id: "n2", headline: "Lucid secures additional funding commitment from PIF", source: "Bloomberg", timestamp: "2026-07-15T12:00:00Z", url: "#" }
+    ],
+    earnings: { reportDate: "2026-08-05", reportTime: "AMC", epsEstimate: -0.24, epsActual: null, revenueEstimate: "0.24B", revenueActual: null, surprisePercent: null },
+    sentiment: {
+      x: { positive: 38, negative: 62, mentionVolume: 6210 },
+      reddit: { positive: 33, negative: 67, mentionVolume: 2870 },
+      stocktwits: { positive: 41, negative: 59, mentionVolume: 4320 }
+    },
+    risk: {
+      dilution: { level: "high", description: "지속적인 현금 소진으로 대주주(PIF) 대상 유상증자가 반복적으로 발생." },
+      delisting: { level: "low", description: "상장폐지 관련 특이사항 없음." },
+      shareDilutionRisk: { level: "high", description: "대규모 신주 발행 이력이 잦아 기존 주주 희석이 지속됨." }
+    }
+  },
+  BYND: {
+    ticker: "BYND",
+    name: "Beyond Meat, Inc.",
+    price: 4.12,
+    changePercent: -8.43,
+    changeAmount: -0.38,
+    volume: 12300000,
+    marketCap: "0.26B",
+    news: [
+      { id: "n1", headline: "Beyond Meat sales decline continues amid weak demand", source: "CNBC", timestamp: "2026-07-19T06:10:00Z", url: "#" },
+      { id: "n2", headline: "Beyond Meat explores further cost-cutting measures", source: "Reuters", timestamp: "2026-07-14T10:40:00Z", url: "#" }
+    ],
+    earnings: { reportDate: "2026-08-07", reportTime: "BMO", epsEstimate: -0.32, epsActual: null, revenueEstimate: "0.07B", revenueActual: null, surprisePercent: null },
+    sentiment: {
+      x: { positive: 29, negative: 71, mentionVolume: 4120 },
+      reddit: { positive: 24, negative: 76, mentionVolume: 3390 },
+      stocktwits: { positive: 33, negative: 67, mentionVolume: 3980 }
+    },
+    risk: {
+      dilution: { level: "high", description: "실적 부진에 따른 운영자금 확보 목적의 유상증자 가능성 높음." },
+      delisting: { level: "medium", description: "과거 액면병합(reverse split) 이력이 있어 상장 유지 요건 관련 우려 상존." },
+      shareDilutionRisk: { level: "high", description: "지속적 적자로 신주·전환사채 발행을 통한 자금 조달이 반복됨." }
+    }
   }
 };
 
@@ -355,4 +403,5 @@ function pickFields(ticker) {
 
 const MOCK_PREMARKET = ["TSLA", "NVDA", "PLTR", "COIN", "SOFI", "MARA", "RIVN", "MSTR"].map(pickFields);
 const MOCK_REGULAR = ["AAPL", "NVDA", "AMD", "TSLA", "GME", "COIN", "INTC", "NIO"].map(pickFields);
-const MOCK_GAINERS = ["PLTR", "COIN", "TSLA", "AMD", "NVDA", "MARA", "MSTR", "RIVN", "SMCI"].map(pickFields);
+const MOCK_GAINERS = ["PLTR", "COIN", "TSLA", "AMD", "NVDA", "MARA", "MSTR", "RIVN"].map(pickFields);
+const MOCK_LOSERS = ["SMCI", "GME", "NIO", "AAPL", "LCID", "BYND"].map(pickFields);
