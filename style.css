@@ -68,6 +68,28 @@ body {
   font-weight: 600;
 }
 
+.currency-toggle-btn {
+  appearance: none;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--bg-surface-hover);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.currency-toggle-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.currency-toggle-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 /* Search */
 
 .search-section {
@@ -242,6 +264,34 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+.stock-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.stock-table th.sortable:hover {
+  color: var(--text-primary);
+}
+
+.stock-table th.sortable::after {
+  content: "↕";
+  margin-left: 4px;
+  opacity: 0.4;
+  font-size: 11px;
+}
+
+.stock-table th.sortable.sort-asc::after {
+  content: "▲";
+  opacity: 1;
+  color: var(--accent);
+}
+
+.stock-table th.sortable.sort-desc::after {
+  content: "▼";
+  opacity: 1;
+  color: var(--accent);
+}
+
 .stock-table tbody tr {
   cursor: pointer;
   border-bottom: 1px solid var(--border-color);
@@ -261,6 +311,12 @@ body {
 
 .ticker-cell {
   font-weight: 700;
+}
+
+.ticker-name-ko {
+  font-weight: 400;
+  color: var(--text-secondary);
+  font-size: 12px;
 }
 
 .name-cell {
@@ -337,6 +393,12 @@ body {
 .modal-ticker {
   font-size: 22px;
   font-weight: 800;
+}
+
+.modal-ticker-ko {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
 }
 
 .modal-name {

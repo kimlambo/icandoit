@@ -14,6 +14,7 @@
       <span>ICanDoIt</span>
     </div>
     <div class="app-header-meta">
+      <button type="button" id="currency-toggle" class="currency-toggle-btn">$ USD</button>
       <span class="market-status-badge" id="market-status">장 마감</span>
       <span class="last-updated" id="last-updated">마지막 업데이트: --:--</span>
     </div>
@@ -33,16 +34,15 @@
   </div>
 
   <nav class="tab-nav" role="tablist">
-    <button class="tab-btn active" data-tab="premarket" role="tab" aria-selected="true">프리마켓</button>
-    <button class="tab-btn" data-tab="regular" role="tab" aria-selected="false">정규장</button>
+    <button class="tab-btn active" data-tab="watchlist" role="tab" aria-selected="true">정규장</button>
     <button class="tab-btn" data-tab="gainers" role="tab" aria-selected="false">급상승 종목</button>
     <button class="tab-btn" data-tab="losers" role="tab" aria-selected="false">급하락 종목</button>
   </nav>
 
   <main class="tab-panels">
-    <section id="panel-premarket" class="tab-panel active" role="tabpanel">
+    <section id="panel-watchlist" class="tab-panel active" role="tabpanel">
       <div class="table-scroll">
-        <table class="stock-table" data-panel="premarket">
+        <table class="stock-table" data-panel="watchlist">
           <thead>
             <tr>
               <th>티커</th>
@@ -50,25 +50,7 @@
               <th class="num">현재가</th>
               <th class="num">등락률</th>
               <th class="num">거래량</th>
-              <th class="num">시가총액</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </section>
-
-    <section id="panel-regular" class="tab-panel" role="tabpanel">
-      <div class="table-scroll">
-        <table class="stock-table" data-panel="regular">
-          <thead>
-            <tr>
-              <th>티커</th>
-              <th>종목명</th>
-              <th class="num">현재가</th>
-              <th class="num">등락률</th>
-              <th class="num">거래량</th>
-              <th class="num">시가총액</th>
+              <th class="num sortable" data-sort-key="marketCap">시가총액</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -86,7 +68,7 @@
               <th class="num">현재가</th>
               <th class="num">등락률</th>
               <th class="num">거래량</th>
-              <th class="num">시가총액</th>
+              <th class="num sortable" data-sort-key="marketCap">시가총액</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -104,7 +86,7 @@
               <th class="num">현재가</th>
               <th class="num">등락률</th>
               <th class="num">거래량</th>
-              <th class="num">시가총액</th>
+              <th class="num sortable" data-sort-key="marketCap">시가총액</th>
             </tr>
           </thead>
           <tbody></tbody>

@@ -2,17 +2,45 @@
 
 (function () {
   let currentTicker = null;
+  let currentStockDetail = null;
+  let currencyMode = "USD";
+  let usdKrwRate = null;
+  const tableData = { watchlist: [], gainers: [], losers: [] };
+  const sortState = { watchlist: { key: null, direction: null }, gainers: { key: null, direction: null }, losers: { key: null, direction: null } };
+
+  function renderTable(panel) {
+    ui.renderStockTable(document.querySelector(`[data-panel="${panel}"] tbody`), tableData[panel], currencyMode, usdKrwRate);
+  }
 
   async function loadAndRenderTables() {
-    const premarket = await dataService.getPremarketMovers();
-    const regular = await dataService.getRegularMovers();
-    const gainers = await dataService.getTopGainers();
-    const losers = await dataService.getTopLosers();
+    tableData.watchlist = await dataService.getWatchlist();
+    tableData.gainers = await dataService.getTopGainers();
+    tableData.losers = await dataService.getTopLosers();
 
-    ui.renderStockTable(document.querySelector('[data-panel="premarket"] tbody'), premarket);
-    ui.renderStockTable(document.querySelector('[data-panel="regular"] tbody'), regular);
-    ui.renderStockTable(document.querySelector('[data-panel="gainers"] tbody'), gainers);
-    ui.renderStockTable(document.querySelector('[data-panel="losers"] tbody'), losers);
+    renderTable("watchlist");
+    renderTable("gainers");
+    renderTable("losers");
+  }
+
+  function sortByColumn(panel, key) {
+    const state = sortState[panel];
+    state.direction = state.key === key && state.direction === "desc" ? "asc" : "desc";
+    state.key = key;
+
+    tableData[panel] = [...tableData[panel]].sort((a, b) => {
+      const av = a[key];
+      const bv = b[key];
+      if (av === null || av === undefined) return 1;
+      if (bv === null || bv === undefined) return -1;
+      return state.direction === "asc" ? av - bv : bv - av;
+    });
+
+    renderTable(panel);
+
+    document.querySelectorAll(`[data-panel="${panel}"] th.sortable`).forEach((th) => {
+      th.classList.remove("sort-asc", "sort-desc");
+      if (th.dataset.sortKey === key) th.classList.add(state.direction === "asc" ? "sort-asc" : "sort-desc");
+    });
   }
 
   function setLastUpdated() {
@@ -51,7 +79,8 @@
     const sentiment = await dataService.getSentiment(ticker);
     const risk = await dataService.getRiskFlags(ticker);
 
-    ui.renderModalHeader(document.getElementById("modal-header"), stock);
+    currentStockDetail = stock;
+    ui.renderModalHeader(document.getElementById("modal-header"), stock, currencyMode, usdKrwRate);
     ui.renderNewsTab(document.getElementById("modal-panel-news"), news);
     ui.renderEarningsTab(document.getElementById("modal-panel-earnings"), earnings);
     ui.renderSentimentTab(document.getElementById("modal-panel-sentiment"), sentiment);
@@ -69,6 +98,23 @@
     modal.classList.add("hidden");
     modal.setAttribute("aria-hidden", "true");
     currentTicker = null;
+    currentStockDetail = null;
+  }
+
+  function bindCurrencyToggle() {
+    const btn = document.getElementById("currency-toggle");
+    btn.addEventListener("click", () => {
+      currencyMode = currencyMode === "USD" ? "KRW" : "USD";
+      btn.textContent = currencyMode === "USD" ? "$ USD" : "₩ KRW";
+
+      renderTable("watchlist");
+      renderTable("gainers");
+      renderTable("losers");
+
+      if (currentStockDetail) {
+        ui.renderModalHeader(document.getElementById("modal-header"), currentStockDetail, currencyMode, usdKrwRate);
+      }
+    });
   }
 
   function bindSearch() {
@@ -122,6 +168,11 @@
 
     document.querySelectorAll(".stock-table").forEach((table) => {
       table.addEventListener("click", (e) => {
+        const sortHeader = e.target.closest("th.sortable");
+        if (sortHeader) {
+          sortByColumn(table.dataset.panel, sortHeader.dataset.sortKey);
+          return;
+        }
         const row = e.target.closest("tr[data-ticker]");
         if (!row) return;
         openModal(row.dataset.ticker);
@@ -152,6 +203,14 @@
     await loadAndRenderTables();
     bindEvents();
     bindSearch();
+    bindCurrencyToggle();
+
+    usdKrwRate = await dataService.getUsdKrwRate();
+    if (!usdKrwRate) {
+      const btn = document.getElementById("currency-toggle");
+      btn.disabled = true;
+      btn.title = "환율 정보를 불러올 수 없습니다.";
+    }
   }
 
   document.addEventListener("DOMContentLoaded", init);

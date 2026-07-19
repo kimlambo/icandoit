@@ -17,6 +17,22 @@ const ui = (function () {
     return String(n);
   }
 
+  function formatPriceDisplay(n, currencyMode, usdKrwRate) {
+    if (n === null || n === undefined) return null;
+    if (currencyMode === "KRW" && usdKrwRate) {
+      return "₩" + Math.round(n * usdKrwRate).toLocaleString("ko-KR");
+    }
+    return "$" + formatPrice(n);
+  }
+
+  function formatMoney(n) {
+    if (n === null || n === undefined) return "-";
+    if (Math.abs(n) >= 1e12) return (n / 1e12).toFixed(2) + "T";
+    if (Math.abs(n) >= 1e9) return (n / 1e9).toFixed(1) + "B";
+    if (Math.abs(n) >= 1e6) return (n / 1e6).toFixed(1) + "M";
+    return String(n);
+  }
+
   function priceChangeClass(n) {
     return n >= 0 ? "change-positive" : "change-negative";
   }
@@ -30,35 +46,35 @@ const ui = (function () {
     return { low: "낮음", medium: "보통", high: "높음" }[level] || level;
   }
 
-  function renderStockTable(tbodyEl, stocks) {
+  function renderStockTable(tbodyEl, stocks, currencyMode, usdKrwRate) {
     tbodyEl.innerHTML = stocks
       .map(
         (s) => `
       <tr data-ticker="${s.ticker}">
-        <td class="ticker-cell">${s.ticker}</td>
+        <td class="ticker-cell">${s.ticker}${s.nameKo ? ` <span class="ticker-name-ko">${s.nameKo}</span>` : ""}</td>
         <td class="name-cell">${s.name}</td>
-        <td class="num">$${formatPrice(s.price)}</td>
+        <td class="num">${formatPriceDisplay(s.price, currencyMode, usdKrwRate)}</td>
         <td class="num ${priceChangeClass(s.changePercent)}">${formatPercent(s.changePercent)}</td>
         <td class="num">${formatVolume(s.volume)}</td>
-        <td class="num">${s.marketCap}</td>
+        <td class="num">${formatMoney(s.marketCap)}</td>
       </tr>`
       )
       .join("");
   }
 
-  function renderModalHeader(containerEl, stock) {
+  function renderModalHeader(containerEl, stock, currencyMode, usdKrwRate) {
     const priceRow =
       stock.price === null || stock.price === undefined
         ? `<span class="empty-state">가격 정보를 불러올 수 없습니다.</span>`
         : `
-        <span>$${formatPrice(stock.price)}</span>
+        <span>${formatPriceDisplay(stock.price, currencyMode, usdKrwRate)}</span>
         <span class="${priceChangeClass(stock.changePercent)}">
-          ${formatPercent(stock.changePercent)} (${stock.changeAmount >= 0 ? "+" : ""}${formatPrice(stock.changeAmount)})
+          ${formatPercent(stock.changePercent)} (${stock.changeAmount >= 0 ? "+" : ""}${formatPriceDisplay(stock.changeAmount, currencyMode, usdKrwRate)})
         </span>`;
 
     containerEl.innerHTML = `
       <div class="modal-header-top">
-        <span class="modal-ticker">${stock.ticker}</span>
+        <span class="modal-ticker">${stock.ticker}${stock.nameKo ? ` <span class="modal-ticker-ko">${stock.nameKo}</span>` : ""}</span>
         <span class="modal-name">${stock.name}</span>
       </div>
       <div class="modal-price-row">${priceRow}</div>`;
@@ -192,6 +208,8 @@ const ui = (function () {
     formatPercent,
     formatPrice,
     formatVolume,
+    formatMoney,
+    formatPriceDisplay,
     priceChangeClass,
     formatDateTime,
     renderStockTable,

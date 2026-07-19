@@ -71,7 +71,7 @@ const dataService = (function () {
       if (!profile || !profile.name) return null;
       return {
         name: profile.name,
-        marketCap: formatMoney((profile.marketCapitalization || 0) * 1e6)
+        marketCap: profile.marketCapitalization ? profile.marketCapitalization * 1e6 : null
       };
     } catch (err) {
       console.warn(`[dataService] ${ticker} 회사 프로필 조회 중 오류`, err);
@@ -155,12 +155,8 @@ const dataService = (function () {
     }
   }
 
-  async function getPremarketMovers() {
-    return Promise.all(MOCK_PREMARKET.map(withLiveQuote));
-  }
-
-  async function getRegularMovers() {
-    return Promise.all(MOCK_REGULAR.map(withLiveQuote));
+  async function getWatchlist() {
+    return Promise.all(MOCK_WATCHLIST.map(withLiveQuote));
   }
 
   function looksLikeDerivativeTicker(ticker) {
@@ -185,7 +181,7 @@ const dataService = (function () {
             changePercent: parseFloat(item.change_percentage),
             changeAmount: parseFloat(item.change_amount),
             volume: parseFloat(item.volume),
-            marketCap: profile.marketCap || "-"
+            marketCap: profile.marketCap || null
           };
         })
       );
@@ -285,6 +281,27 @@ const dataService = (function () {
     return mock ? mock.risk : null;
   }
 
+  let usdKrwRatePromise = null;
+
+  function getUsdKrwRate() {
+    if (usdKrwRatePromise) return usdKrwRatePromise;
+    usdKrwRatePromise = (async () => {
+      try {
+        const res = await fetch("https://open.er-api.com/v6/latest/USD");
+        if (!res.ok) {
+          console.warn(`[dataService] 환율 조회 실패 (HTTP ${res.status})`);
+          return null;
+        }
+        const data = await res.json();
+        return data && data.rates && data.rates.KRW ? data.rates.KRW : null;
+      } catch (err) {
+        console.warn(`[dataService] 환율 조회 중 오류`, err);
+        return null;
+      }
+    })();
+    return usdKrwRatePromise;
+  }
+
   async function searchSymbols(query) {
     if (!hasApiKey() || !query || query.trim().length < 1) return [];
     try {
@@ -305,8 +322,7 @@ const dataService = (function () {
   }
 
   return {
-    getPremarketMovers,
-    getRegularMovers,
+    getWatchlist,
     getTopGainers,
     getTopLosers,
     getStockDetail,
@@ -314,6 +330,7 @@ const dataService = (function () {
     getEarnings,
     getSentiment,
     getRiskFlags,
-    searchSymbols
+    searchSymbols,
+    getUsdKrwRate
   };
 })();
