@@ -193,6 +193,150 @@ const MOCK_STOCKS_BY_TICKER = {
       delisting: { level: "low", description: "상장폐지 관련 특이사항 없음." },
       shareDilutionRisk: { level: "medium", description: "전환사채 및 워런트 물량 존재." }
     }
+  },
+  MSTR: {
+    ticker: "MSTR",
+    name: "MicroStrategy Incorporated",
+    price: 402.15,
+    changePercent: 7.85,
+    changeAmount: 29.28,
+    volume: 3204000,
+    marketCap: "71.0B",
+    news: [
+      { id: "n1", headline: "MicroStrategy adds another 5,000 BTC to holdings", source: "CoinDesk", timestamp: "2026-07-19T07:10:00Z", url: "#" },
+      { id: "n2", headline: "MicroStrategy stock tracks bitcoin rally closely", source: "Bloomberg", timestamp: "2026-07-17T13:00:00Z", url: "#" }
+    ],
+    earnings: { reportDate: "2026-07-31", reportTime: "AMC", epsEstimate: -0.42, epsActual: null, revenueEstimate: "0.12B", revenueActual: null, surprisePercent: null },
+    sentiment: {
+      x: { positive: 84, negative: 16, mentionVolume: 31022 },
+      reddit: { positive: 70, negative: 30, mentionVolume: 9204 },
+      stocktwits: { positive: 86, negative: 14, mentionVolume: 17650 }
+    },
+    risk: {
+      dilution: { level: "high", description: "비트코인 매입 재원 마련을 위한 전환사채·유상증자가 상시적으로 발생." },
+      delisting: { level: "low", description: "상장폐지 관련 특이사항 없음." },
+      shareDilutionRisk: { level: "high", description: "전환사채 발행이 잦아 장기 주주 희석 우려 지속." }
+    }
+  },
+  SMCI: {
+    ticker: "SMCI",
+    name: "Super Micro Computer, Inc.",
+    price: 42.18,
+    changePercent: -6.32,
+    changeAmount: -2.84,
+    volume: 15620000,
+    marketCap: "24.7B",
+    news: [
+      { id: "n1", headline: "Super Micro shares slide on delayed filing concerns", source: "Reuters", timestamp: "2026-07-19T08:45:00Z", url: "#" },
+      { id: "n2", headline: "Super Micro reaffirms compliance timeline with Nasdaq", source: "CNBC", timestamp: "2026-07-16T10:20:00Z", url: "#" }
+    ],
+    earnings: { reportDate: "2026-08-06", reportTime: "AMC", epsEstimate: 0.62, epsActual: null, revenueEstimate: "6.1B", revenueActual: null, surprisePercent: null },
+    sentiment: {
+      x: { positive: 41, negative: 59, mentionVolume: 19870 },
+      reddit: { positive: 35, negative: 65, mentionVolume: 7120 },
+      stocktwits: { positive: 46, negative: 54, mentionVolume: 10450 }
+    },
+    risk: {
+      dilution: { level: "medium", description: "회계 이슈 대응 과정에서 자금 조달용 증자 가능성 존재." },
+      delisting: { level: "high", description: "과거 재무제표 제출 지연 이력으로 나스닥 상장 요건 위반 우려." },
+      shareDilutionRisk: { level: "medium", description: "신뢰 회복을 위한 자본 확충 시 희석 가능성 있음." }
+    }
+  },
+  RIVN: {
+    ticker: "RIVN",
+    name: "Rivian Automotive, Inc.",
+    price: 13.45,
+    changePercent: 4.2,
+    changeAmount: 0.54,
+    volume: 32140000,
+    marketCap: "13.9B",
+    news: [
+      { id: "n1", headline: "Rivian ramps R2 production ahead of schedule", source: "Reuters", timestamp: "2026-07-19T06:50:00Z", url: "#" },
+      { id: "n2", headline: "Rivian narrows quarterly cash burn guidance", source: "Electrek", timestamp: "2026-07-14T09:30:00Z", url: "#" }
+    ],
+    earnings: { reportDate: "2026-08-06", reportTime: "AMC", epsEstimate: -0.85, epsActual: null, revenueEstimate: "1.2B", revenueActual: null, surprisePercent: null },
+    sentiment: {
+      x: { positive: 60, negative: 40, mentionVolume: 10230 },
+      reddit: { positive: 57, negative: 43, mentionVolume: 5310 },
+      stocktwits: { positive: 63, negative: 37, mentionVolume: 7890 }
+    },
+    risk: {
+      dilution: { level: "high", description: "지속적인 현금 소진으로 추가 유상증자 가능성 높음." },
+      delisting: { level: "low", description: "상장폐지 관련 특이사항 없음." },
+      shareDilutionRisk: { level: "high", description: "생산 확대 자금 조달을 위한 신주 발행 여지가 큼." }
+    }
+  },
+  MARA: {
+    ticker: "MARA",
+    name: "MARA Holdings, Inc.",
+    price: 18.92,
+    changePercent: 9.64,
+    changeAmount: 1.66,
+    volume: 45320000,
+    marketCap: "5.6B",
+    news: [
+      { id: "n1", headline: "MARA increases bitcoin mining hash rate capacity", source: "CoinDesk", timestamp: "2026-07-19T05:55:00Z", url: "#" },
+      { id: "n2", headline: "MARA stock rallies with broader crypto market", source: "Yahoo Finance", timestamp: "2026-07-18T16:10:00Z", url: "#" }
+    ],
+    earnings: { reportDate: "2026-08-11", reportTime: "AMC", epsEstimate: 0.14, epsActual: null, revenueEstimate: "0.21B", revenueActual: null, surprisePercent: null },
+    sentiment: {
+      x: { positive: 77, negative: 23, mentionVolume: 24310 },
+      reddit: { positive: 68, negative: 32, mentionVolume: 8990 },
+      stocktwits: { positive: 80, negative: 20, mentionVolume: 14210 }
+    },
+    risk: {
+      dilution: { level: "high", description: "채굴 장비 확충을 위한 ATM 유상증자를 빈번하게 활용." },
+      delisting: { level: "low", description: "상장폐지 관련 특이사항 없음." },
+      shareDilutionRisk: { level: "high", description: "ATM 프로그램을 통한 지속적 신주 발행으로 희석 위험 높음." }
+    }
+  },
+  NIO: {
+    ticker: "NIO",
+    name: "NIO Inc.",
+    price: 5.62,
+    changePercent: -2.15,
+    changeAmount: -0.12,
+    volume: 28710000,
+    marketCap: "11.9B",
+    news: [
+      { id: "n1", headline: "NIO deliveries fall short of monthly target", source: "Reuters", timestamp: "2026-07-19T04:30:00Z", url: "#" },
+      { id: "n2", headline: "NIO opens new battery swap stations across Europe", source: "CnEVPost", timestamp: "2026-07-13T08:00:00Z", url: "#" }
+    ],
+    earnings: { reportDate: "2026-08-27", reportTime: "BMO", epsEstimate: -0.18, epsActual: null, revenueEstimate: "1.7B", revenueActual: null, surprisePercent: null },
+    sentiment: {
+      x: { positive: 47, negative: 53, mentionVolume: 9120 },
+      reddit: { positive: 42, negative: 58, mentionVolume: 3670 },
+      stocktwits: { positive: 50, negative: 50, mentionVolume: 6210 }
+    },
+    risk: {
+      dilution: { level: "medium", description: "적자 지속으로 인한 추가 자금 조달(유상증자) 가능성 존재." },
+      delisting: { level: "medium", description: "중국 기업 ADR 특성상 미국 회계감독 규정 관련 리스크 상존." },
+      shareDilutionRisk: { level: "medium", description: "전환사채 및 신주 발행을 통한 자금 조달 이력 있음." }
+    }
+  },
+  INTC: {
+    ticker: "INTC",
+    name: "Intel Corporation",
+    price: 31.2,
+    changePercent: 1.35,
+    changeAmount: 0.42,
+    volume: 41200000,
+    marketCap: "134.5B",
+    news: [
+      { id: "n1", headline: "Intel foundry unit lands new external customer", source: "Reuters", timestamp: "2026-07-19T09:00:00Z", url: "#" },
+      { id: "n2", headline: "Intel on track with 18A process node timeline", source: "Tom's Hardware", timestamp: "2026-07-15T14:20:00Z", url: "#" }
+    ],
+    earnings: { reportDate: "2026-07-24", reportTime: "AMC", epsEstimate: 0.11, epsActual: null, revenueEstimate: "12.9B", revenueActual: null, surprisePercent: null },
+    sentiment: {
+      x: { positive: 52, negative: 48, mentionVolume: 11230 },
+      reddit: { positive: 49, negative: 51, mentionVolume: 4890 },
+      stocktwits: { positive: 54, negative: 46, mentionVolume: 6780 }
+    },
+    risk: {
+      dilution: { level: "low", description: "최근 유상증자 이력 없음." },
+      delisting: { level: "low", description: "상장폐지 관련 특이사항 없음." },
+      shareDilutionRisk: { level: "low", description: "대형주로 신주 발행을 통한 희석 위험 낮음." }
+    }
   }
 };
 
@@ -209,6 +353,6 @@ function pickFields(ticker) {
   };
 }
 
-const MOCK_PREMARKET = ["TSLA", "NVDA", "PLTR", "COIN", "SOFI"].map(pickFields);
-const MOCK_REGULAR = ["AAPL", "NVDA", "AMD", "TSLA", "GME", "COIN"].map(pickFields);
-const MOCK_GAINERS = ["PLTR", "COIN", "TSLA", "AMD", "NVDA"].map(pickFields);
+const MOCK_PREMARKET = ["TSLA", "NVDA", "PLTR", "COIN", "SOFI", "MARA", "RIVN", "MSTR"].map(pickFields);
+const MOCK_REGULAR = ["AAPL", "NVDA", "AMD", "TSLA", "GME", "COIN", "INTC", "NIO"].map(pickFields);
+const MOCK_GAINERS = ["PLTR", "COIN", "TSLA", "AMD", "NVDA", "MARA", "MSTR", "RIVN", "SMCI"].map(pickFields);
