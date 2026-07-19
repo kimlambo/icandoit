@@ -47,17 +47,21 @@ const ui = (function () {
   }
 
   function renderModalHeader(containerEl, stock) {
+    const priceRow =
+      stock.price === null || stock.price === undefined
+        ? `<span class="empty-state">가격 정보를 불러올 수 없습니다.</span>`
+        : `
+        <span>$${formatPrice(stock.price)}</span>
+        <span class="${priceChangeClass(stock.changePercent)}">
+          ${formatPercent(stock.changePercent)} (${stock.changeAmount >= 0 ? "+" : ""}${formatPrice(stock.changeAmount)})
+        </span>`;
+
     containerEl.innerHTML = `
       <div class="modal-header-top">
         <span class="modal-ticker">${stock.ticker}</span>
         <span class="modal-name">${stock.name}</span>
       </div>
-      <div class="modal-price-row">
-        <span>$${formatPrice(stock.price)}</span>
-        <span class="${priceChangeClass(stock.changePercent)}">
-          ${formatPercent(stock.changePercent)} (${stock.changeAmount >= 0 ? "+" : ""}${formatPrice(stock.changeAmount)})
-        </span>
-      </div>`;
+      <div class="modal-price-row">${priceRow}</div>`;
   }
 
   function renderNewsTab(containerEl, newsItems) {
@@ -77,6 +81,11 @@ const ui = (function () {
   }
 
   function renderEarningsTab(containerEl, earnings) {
+    if (!earnings || !earnings.reportDate) {
+      containerEl.innerHTML = `<p class="empty-state">어닝 정보가 없습니다.</p>`;
+      return;
+    }
+
     const reportTimeLabel = earnings.reportTime === "BMO" ? "장 시작 전" : "장 마감 후";
     const surprise =
       earnings.surprisePercent === null || earnings.surprisePercent === undefined
@@ -91,11 +100,11 @@ const ui = (function () {
         </div>
         <div class="earnings-item">
           <div class="earnings-label">EPS 예상 / 실제</div>
-          <div class="earnings-value">${earnings.epsEstimate} / ${earnings.epsActual ?? "-"}</div>
+          <div class="earnings-value">${earnings.epsEstimate ?? "-"} / ${earnings.epsActual ?? "-"}</div>
         </div>
         <div class="earnings-item">
           <div class="earnings-label">매출 예상 / 실제</div>
-          <div class="earnings-value">${earnings.revenueEstimate} / ${earnings.revenueActual ?? "-"}</div>
+          <div class="earnings-value">${earnings.revenueEstimate ?? "-"} / ${earnings.revenueActual ?? "-"}</div>
         </div>
         <div class="earnings-item">
           <div class="earnings-label">서프라이즈</div>
@@ -105,6 +114,10 @@ const ui = (function () {
   }
 
   function renderSentimentTab(containerEl, sentiment) {
+    if (!sentiment) {
+      containerEl.innerHTML = `<p class="empty-state">SNS 여론 데이터가 아직 없습니다.</p>`;
+      return;
+    }
     const platforms = [
       { key: "x", label: "X (Twitter)" },
       { key: "reddit", label: "Reddit" },
@@ -134,6 +147,10 @@ const ui = (function () {
   }
 
   function renderRiskTab(containerEl, risk) {
+    if (!risk) {
+      containerEl.innerHTML = `<p class="empty-state">리스크 데이터가 아직 없습니다.</p>`;
+      return;
+    }
     const items = [
       { key: "dilution", title: "유상증자 가능성" },
       { key: "delisting", title: "상장폐지 위험" },
@@ -155,6 +172,22 @@ const ui = (function () {
       .join("");
   }
 
+  function renderSearchResults(containerEl, results) {
+    if (!results || results.length === 0) {
+      containerEl.innerHTML = `<div class="search-result-empty">검색 결과가 없습니다.</div>`;
+      return;
+    }
+    containerEl.innerHTML = results
+      .map(
+        (r) => `
+      <button type="button" class="search-result-item" data-ticker="${r.symbol}">
+        <span class="search-result-ticker">${r.symbol}</span>
+        <span class="search-result-name">${r.name}</span>
+      </button>`
+      )
+      .join("");
+  }
+
   return {
     formatPercent,
     formatPrice,
@@ -166,6 +199,7 @@ const ui = (function () {
     renderNewsTab,
     renderEarningsTab,
     renderSentimentTab,
-    renderRiskTab
+    renderRiskTab,
+    renderSearchResults
   };
 })();

@@ -2,7 +2,13 @@
    Finnhub API로 덮어쓴다. SNS 여론(X/레딧/StockTwits)과 리스크는 계속 mock.
    StockTwits 공개 API는 브라우저에서 CORS로 막혀 있어 백엔드 프록시 없이는
    직접 연동 불가 — 프록시 구축 시 재검토.
-   API 요청이 실패/키 없음/데이터 없음이면 조용히 mock 값으로 폴백한다. */
+
+   검색으로 들어온, mockData에 없는 임의의 티커도 지원한다: 가격/뉴스/어닝은
+   Finnhub에서 직접 조회하고, 회사명/시가총액은 Finnhub 회사 프로필(profile2)로
+   보완한다. SNS 여론·리스크·거래량은 아직 라이브 소스가 없어 null로 반환하고
+   화면에서 "데이터 없음"으로 표시한다.
+
+   API 요청이 실패/키 없음/데이터 없음이면 조용히 mock 값(있으면)으로 폴백한다. */
 
 const dataService = (function () {
   function hasApiKey() {
@@ -27,18 +33,18 @@ const dataService = (function () {
         `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(ticker)}&token=${FINNHUB_API_KEY}`
       );
       if (!res.ok) {
-        console.warn(`[dataService] ${ticker} 시세 조회 실패 (HTTP ${res.status}), mock 가격 사용`);
+        console.warn(`[dataService] ${ticker} 시세 조회 실패 (HTTP ${res.status})`);
         return null;
       }
       const quote = await res.json();
       const hasData = quote && (quote.c || quote.pc);
       if (!hasData) {
-        console.warn(`[dataService] ${ticker} 시세 데이터 없음, mock 가격 사용`);
+        console.warn(`[dataService] ${ticker} 시세 데이터 없음`);
         return null;
       }
       return { price: quote.c, changeAmount: quote.d, changePercent: quote.dp };
     } catch (err) {
-      console.warn(`[dataService] ${ticker} 시세 조회 중 오류, mock 가격 사용`, err);
+      console.warn(`[dataService] ${ticker} 시세 조회 중 오류`, err);
       return null;
     }
   }
@@ -46,6 +52,25 @@ const dataService = (function () {
   async function withLiveQuote(stock) {
     const live = await fetchLiveQuote(stock.ticker);
     return live ? { ...stock, ...live } : stock;
+  }
+
+  async function fetchCompanyProfile(ticker) {
+    if (!hasApiKey()) return null;
+    try {
+      const res = await fetch(
+        `https://finnhub.io/api/v1/stock/profile2?symbol=${encodeURIComponent(ticker)}&token=${FINNHUB_API_KEY}`
+      );
+      if (!res.ok) return null;
+      const profile = await res.json();
+      if (!profile || !profile.name) return null;
+      return {
+        name: profile.name,
+        marketCap: formatMoney((profile.marketCapitalization || 0) * 1e6)
+      };
+    } catch (err) {
+      console.warn(`[dataService] ${ticker} 회사 프로필 조회 중 오류`, err);
+      return null;
+    }
   }
 
   async function fetchCompanyNews(ticker) {
@@ -57,12 +82,12 @@ const dataService = (function () {
         `https://finnhub.io/api/v1/company-news?symbol=${encodeURIComponent(ticker)}&from=${toDateStr(from)}&to=${toDateStr(to)}&token=${FINNHUB_API_KEY}`
       );
       if (!res.ok) {
-        console.warn(`[dataService] ${ticker} 뉴스 조회 실패 (HTTP ${res.status}), mock 뉴스 사용`);
+        console.warn(`[dataService] ${ticker} 뉴스 조회 실패 (HTTP ${res.status})`);
         return null;
       }
       const items = await res.json();
       if (!Array.isArray(items) || items.length === 0) {
-        console.warn(`[dataService] ${ticker} 뉴스 데이터 없음, mock 뉴스 사용`);
+        console.warn(`[dataService] ${ticker} 뉴스 데이터 없음`);
         return null;
       }
       return items.slice(0, 6).map((item, i) => ({
@@ -73,7 +98,7 @@ const dataService = (function () {
         url: item.url || "#"
       }));
     } catch (err) {
-      console.warn(`[dataService] ${ticker} 뉴스 조회 중 오류, mock 뉴스 사용`, err);
+      console.warn(`[dataService] ${ticker} 뉴스 조회 중 오류`, err);
       return null;
     }
   }
@@ -88,13 +113,13 @@ const dataService = (function () {
         `https://finnhub.io/api/v1/calendar/earnings?from=${toDateStr(from)}&to=${toDateStr(to)}&symbol=${encodeURIComponent(ticker)}&token=${FINNHUB_API_KEY}`
       );
       if (!res.ok) {
-        console.warn(`[dataService] ${ticker} 어닝 조회 실패 (HTTP ${res.status}), mock 어닝 사용`);
+        console.warn(`[dataService] ${ticker} 어닝 조회 실패 (HTTP ${res.status})`);
         return null;
       }
       const data = await res.json();
       const list = data && data.earningsCalendar;
       if (!Array.isArray(list) || list.length === 0) {
-        console.warn(`[dataService] ${ticker} 어닝 데이터 없음, mock 어닝 사용`);
+        console.warn(`[dataService] ${ticker} 어닝 데이터 없음`);
         return null;
       }
 
@@ -119,7 +144,7 @@ const dataService = (function () {
         surprisePercent
       };
     } catch (err) {
-      console.warn(`[dataService] ${ticker} 어닝 조회 중 오류, mock 어닝 사용`, err);
+      console.warn(`[dataService] ${ticker} 어닝 조회 중 오류`, err);
       return null;
     }
   }
@@ -137,25 +162,64 @@ const dataService = (function () {
   }
 
   async function getStockDetail(ticker) {
-    return withLiveQuote(MOCK_STOCKS_BY_TICKER[ticker]);
+    const base = MOCK_STOCKS_BY_TICKER[ticker];
+    if (base) {
+      return withLiveQuote(base);
+    }
+
+    const [quote, profile] = await Promise.all([fetchLiveQuote(ticker), fetchCompanyProfile(ticker)]);
+    return {
+      ticker,
+      name: (profile && profile.name) || ticker,
+      price: quote ? quote.price : null,
+      changePercent: quote ? quote.changePercent : null,
+      changeAmount: quote ? quote.changeAmount : null,
+      volume: null,
+      marketCap: (profile && profile.marketCap) || null
+    };
   }
 
   async function getNews(ticker) {
     const live = await fetchCompanyNews(ticker);
-    return live || MOCK_STOCKS_BY_TICKER[ticker].news;
+    if (live) return live;
+    const mock = MOCK_STOCKS_BY_TICKER[ticker];
+    return mock ? mock.news : [];
   }
 
   async function getEarnings(ticker) {
     const live = await fetchEarningsCalendar(ticker);
-    return live || MOCK_STOCKS_BY_TICKER[ticker].earnings;
+    if (live) return live;
+    const mock = MOCK_STOCKS_BY_TICKER[ticker];
+    return mock ? mock.earnings : null;
   }
 
   function getSentiment(ticker) {
-    return MOCK_STOCKS_BY_TICKER[ticker].sentiment;
+    const mock = MOCK_STOCKS_BY_TICKER[ticker];
+    return mock ? mock.sentiment : null;
   }
 
   function getRiskFlags(ticker) {
-    return MOCK_STOCKS_BY_TICKER[ticker].risk;
+    const mock = MOCK_STOCKS_BY_TICKER[ticker];
+    return mock ? mock.risk : null;
+  }
+
+  async function searchSymbols(query) {
+    if (!hasApiKey() || !query || query.trim().length < 1) return [];
+    try {
+      const res = await fetch(
+        `https://finnhub.io/api/v1/search?q=${encodeURIComponent(query.trim())}&token=${FINNHUB_API_KEY}`
+      );
+      if (!res.ok) return [];
+      const data = await res.json();
+      const results = Array.isArray(data.result) ? data.result : [];
+      return results
+        .filter((r) => r.symbol && !r.symbol.includes(".") && r.type === "Common Stock")
+        .slice(0, 8)
+        .map((r) => ({ symbol: r.symbol, name: r.description }));
+    } catch (err) {
+      console.warn(`[dataService] 종목 검색 중 오류 (${query})`, err);
+      return [];
+    }
   }
 
   return {
@@ -166,6 +230,7 @@ const dataService = (function () {
     getNews,
     getEarnings,
     getSentiment,
-    getRiskFlags
+    getRiskFlags,
+    searchSymbols
   };
 })();

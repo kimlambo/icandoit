@@ -69,6 +69,48 @@
     currentTicker = null;
   }
 
+  function bindSearch() {
+    const input = document.getElementById("search-input");
+    const results = document.getElementById("search-results");
+    let debounceTimer = null;
+
+    function hideResults() {
+      results.classList.add("hidden");
+      results.innerHTML = "";
+    }
+
+    input.addEventListener("input", () => {
+      const query = input.value.trim();
+      clearTimeout(debounceTimer);
+      if (query.length < 1) {
+        hideResults();
+        return;
+      }
+      debounceTimer = setTimeout(async () => {
+        const matches = await dataService.searchSymbols(query);
+        if (input.value.trim() !== query) return;
+        ui.renderSearchResults(results, matches);
+        results.classList.remove("hidden");
+      }, 350);
+    });
+
+    results.addEventListener("click", (e) => {
+      const item = e.target.closest(".search-result-item");
+      if (!item) return;
+      hideResults();
+      input.value = "";
+      openModal(item.dataset.ticker);
+    });
+
+    document.addEventListener("click", (e) => {
+      if (!e.target.closest(".search-box")) hideResults();
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") hideResults();
+    });
+  }
+
   function bindEvents() {
     document.querySelector(".tab-nav").addEventListener("click", (e) => {
       const btn = e.target.closest(".tab-btn");
@@ -107,6 +149,7 @@
     setLastUpdated();
     await loadAndRenderTables();
     bindEvents();
+    bindSearch();
   }
 
   document.addEventListener("DOMContentLoaded", init);
