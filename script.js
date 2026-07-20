@@ -9,24 +9,175 @@
   const sortState = { watchlist: { key: null, direction: null }, gainers: { key: null, direction: null }, losers: { key: null, direction: null } };
   const filterState = { watchlist: "", gainers: "", losers: "" };
 
-  function renderTable(panel) {
+  let refreshInFlight = false;
+  let tableTimerHandle = null;
+  let modalTimerHandle = null;
+
+  const MOVERS_LIMIT = 15;
+  const WATCHLIST_POLL_INTERVAL_MS = 5 * 60 * 1000;
+  const MODAL_POLL_INTERVAL_MS = 15 * 1000;
+  const MARKET_CLOSED_POLL_INTERVAL_MS = 30 * 60 * 1000;
+
+  function renderTable(panel, changedTickers) {
     const sector = filterState[panel];
     const rows = sector ? tableData[panel].filter((s) => s.sector === sector) : tableData[panel];
-    ui.renderStockTable(document.querySelector(`[data-panel="${panel}"] tbody`), rows, currencyMode, usdKrwRate);
+    ui.renderStockTable(document.querySelector(`[data-panel="${panel}"] tbody`), rows, currencyMode, usdKrwRate, changedTickers);
+  }
+
+  // 미국 정규장(9:30~16:00 ET, 월~금) 여부 — 장 외 시간엔 자동 갱신 주기를 늦춰
+  // 불필요한 API 호출을 아낀다. 서버 없이 클라이언트 시계만으로 판단.
+  function isUsMarketOpen() {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York",
+      hour: "numeric",
+      minute: "numeric",
+      hour12: false,
+      weekday: "short"
+    }).formatToParts(new Date());
+    const map = {};
+    parts.forEach((p) => (map[p.type] = p.value));
+    if (map.weekday === "Sat" || map.weekday === "Sun") return false;
+    const minutesSinceMidnight = (parseInt(map.hour, 10) % 24) * 60 + parseInt(map.minute, 10);
+    return minutesSinceMidnight >= 9 * 60 + 30 && minutesSinceMidnight < 16 * 60;
+  }
+
+  function getTablePollInterval() {
+    return isUsMarketOpen() ? WATCHLIST_POLL_INTERVAL_MS : MARKET_CLOSED_POLL_INTERVAL_MS;
+  }
+
+  function scheduleTablePoll() {
+    clearTimeout(tableTimerHandle);
+    tableTimerHandle = setTimeout(async () => {
+      try {
+        await refreshMarketData();
+      } catch (err) {
+        console.warn("[script] 자동 갱신 중 오류", err);
+      } finally {
+        scheduleTablePoll();
+      }
+    }, getTablePollInterval());
+  }
+
+  function stopTablePolling() {
+    clearTimeout(tableTimerHandle);
+  }
+
+  // 정규장 워치리스트(101개 종목) 시세를 통째로 다시 받고, 급상승/급하락은 그 결과에서
+  // 등락률 상/하위 N개를 다시 뽑아 재계산한다(급상승/급하락 전용 API 호출은 없음 —
+  // 워치리스트가 이미 실시간이므로 거기서 파생시키는 쪽이 항상 최신이고 더 저렴하다).
+  async function refreshMarketData() {
+    if (refreshInFlight) return;
+    refreshInFlight = true;
+    try {
+      const freshRows = await dataService.getWatchlist();
+      const changedTickers = mergeQuotesIntoTableData("watchlist", freshRows);
+      renderTable("watchlist", changedTickers);
+
+      const movers = dataService.computeMoversFromWatchlist(tableData.watchlist, MOVERS_LIMIT);
+      tableData.gainers = movers.gainers;
+      tableData.losers = movers.losers;
+      renderTable("gainers");
+      renderTable("losers");
+
+      setLastUpdated();
+
+      // 마침 모달로 열려있는 종목이 이번에 갱신된 워치리스트에 포함되어 있으면
+      // 재사용해서 모달도 같이 갱신하고, 모달 자체 타이머는 리셋해 직후 중복 호출을 막는다.
+      const modalRow = currentTicker && tableData.watchlist.find((s) => s.ticker === currentTicker);
+      if (modalRow) {
+        currentStockDetail = {
+          ...currentStockDetail,
+          price: modalRow.price,
+          changeAmount: modalRow.changeAmount,
+          changePercent: modalRow.changePercent
+        };
+        ui.renderModalHeader(
+          document.getElementById("modal-header"),
+          currentStockDetail,
+          currencyMode,
+          usdKrwRate,
+          changedTickers.get(currentTicker) || null
+        );
+        startModalPolling();
+      }
+    } finally {
+      refreshInFlight = false;
+    }
+  }
+
+  // freshRows의 가격/등락 필드를 tableData[panel]의 기존 항목에 티커 기준으로
+  // in-place 병합한다(배열 자체를 교체하지 않아 현재 정렬 순서가 유지됨).
+  // 반환값: 실제로 가격이 바뀐 티커 -> "up"|"down" 맵(펄스 애니메이션용).
+  function mergeQuotesIntoTableData(panel, freshRows) {
+    const changed = new Map();
+    const freshByTicker = new Map(freshRows.map((r) => [r.ticker, r]));
+    tableData[panel].forEach((row) => {
+      const fresh = freshByTicker.get(row.ticker);
+      if (!fresh || fresh.price === null || fresh.price === undefined) return;
+      if (row.price !== null && row.price !== undefined && fresh.price !== row.price) {
+        changed.set(row.ticker, fresh.price > row.price ? "up" : "down");
+      }
+      row.price = fresh.price;
+      row.changeAmount = fresh.changeAmount;
+      row.changePercent = fresh.changePercent;
+    });
+    return changed;
+  }
+
+  function startModalPolling() {
+    clearTimeout(modalTimerHandle);
+    modalTimerHandle = setTimeout(async () => {
+      try {
+        await refreshModalPrice();
+      } catch (err) {
+        console.warn("[script] 모달 가격 갱신 중 오류", err);
+      } finally {
+        if (currentTicker) startModalPolling();
+      }
+    }, MODAL_POLL_INTERVAL_MS);
+  }
+
+  function stopModalPolling() {
+    clearTimeout(modalTimerHandle);
+  }
+
+  async function refreshModalPrice() {
+    if (!currentTicker || refreshInFlight) return;
+    const ticker = currentTicker;
+    const fresh = await dataService.getStockDetail(ticker);
+    if (!fresh || fresh.price === null || fresh.price === undefined) return;
+    if (ticker !== currentTicker) return; // 그 사이 모달이 닫혔거나 다른 종목으로 바뀜
+    const prevPrice = currentStockDetail ? currentStockDetail.price : null;
+    const direction =
+      prevPrice !== null && prevPrice !== undefined && fresh.price !== prevPrice
+        ? fresh.price > prevPrice
+          ? "up"
+          : "down"
+        : null;
+    currentStockDetail = fresh;
+    ui.renderModalHeader(document.getElementById("modal-header"), currentStockDetail, currencyMode, usdKrwRate, direction);
+    setLastUpdated();
+  }
+
+  function handleVisibilityChange() {
+    if (document.hidden) {
+      stopTablePolling();
+      stopModalPolling();
+    } else {
+      scheduleTablePoll();
+      if (currentTicker) startModalPolling();
+    }
   }
 
   async function loadAndRenderTables() {
     tableData.watchlist = await dataService.getWatchlist();
-    tableData.gainers = await dataService.getTopGainers();
-    tableData.losers = await dataService.getTopLosers();
+    const movers = dataService.computeMoversFromWatchlist(tableData.watchlist, MOVERS_LIMIT);
+    tableData.gainers = movers.gainers;
+    tableData.losers = movers.losers;
 
     renderTable("watchlist");
     renderTable("gainers");
     renderTable("losers");
-
-    const isLive = dataService.isMoversLive();
-    document.getElementById("gainers-live-note").classList.toggle("hidden", isLive !== false);
-    document.getElementById("losers-live-note").classList.toggle("hidden", isLive !== false);
   }
 
   function sortByColumn(panel, key) {
@@ -100,6 +251,8 @@
     const modal = document.getElementById("stock-modal");
     modal.classList.remove("hidden");
     modal.setAttribute("aria-hidden", "false");
+
+    startModalPolling();
   }
 
   function closeModal() {
@@ -108,6 +261,7 @@
     modal.setAttribute("aria-hidden", "true");
     currentTicker = null;
     currentStockDetail = null;
+    stopModalPolling();
   }
 
   function bindCurrencyToggle() {
@@ -223,6 +377,9 @@
     bindSearch();
     bindCurrencyToggle();
     bindSectorFilters();
+
+    scheduleTablePoll();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     usdKrwRate = await dataService.getUsdKrwRate();
     if (!usdKrwRate) {

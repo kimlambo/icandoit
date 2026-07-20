@@ -2654,5 +2654,3 @@ const MOCK_WATCHLIST = [
   "LRCX", "KLAC", "AMAT", "APTV", "PYPL", "BLK", "BMY", "GILD", "RL", "INTU", "PANW", "UBER", "OXY", "LYV", "PEP",
   "NXPI", "MCHP", "LI", "CVNA", "C", "WFC", "CI", "ISRG", "SKX", "SNOW", "WDAY", "PSX", "SPOT", "CMG", "YUM"
 ].map(pickFields);
-const MOCK_GAINERS = ["PLTR", "COIN", "TSLA", "AMD", "NVDA", "MARA", "MSTR", "RIVN"].map(pickFields);
-const MOCK_LOSERS = ["SMCI", "GME", "NIO", "AAPL", "LCID", "BYND"].map(pickFields);

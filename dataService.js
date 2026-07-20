@@ -11,14 +11,8 @@
    API 요청이 실패/키 없음/데이터 없음이면 조용히 mock 값(있으면)으로 폴백한다. */
 
 const dataService = (function () {
-  let moversScreenerPromise = null;
-
   function hasApiKey() {
     return typeof FINNHUB_API_KEY !== "undefined" && !!FINNHUB_API_KEY;
-  }
-
-  function hasAlphaVantageKey() {
-    return typeof ALPHA_VANTAGE_API_KEY !== "undefined" && !!ALPHA_VANTAGE_API_KEY;
   }
 
   function hasTwelveDataKey() {
@@ -187,111 +181,41 @@ const dataService = (function () {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  // 관심 종목이 많아지면서(현재 80개 이상) 한 번에 전부 fetch하면 Finnhub 분당 호출
+  // 종목이 많아지면(현재 100개 이상) 한 번에 전부 fetch하면 Finnhub 분당 호출
   // 한도(60회)를 순간적으로 초과해 429가 나고, 같은 API 키를 쓰는 검색 등 다른 기능까지
-  // 덩달아 막힌다. 20개씩 나눠 호출 사이에 약간의 지연을 두어 부담을 분산시킨다.
-  async function getWatchlist() {
-    const batches = chunk(MOCK_WATCHLIST, 20);
+  // 덩달아 막힌다. 일정 개수씩 나눠 호출 사이에 지연을 두어 부담을 분산시킨다.
+  // getWatchlist()가 정기 자동 갱신(script.js)에서도 그대로 재사용된다.
+  async function fetchInBatches(items, workFn, batchSize = 20, delayMs = 1100) {
+    const batches = chunk(items, batchSize);
     const results = [];
     for (let i = 0; i < batches.length; i++) {
-      if (i > 0) await delay(1100);
-      results.push(...(await Promise.all(batches[i].map(withLiveQuote))));
+      if (i > 0) await delay(delayMs);
+      results.push(...(await Promise.all(batches[i].map(workFn))));
     }
     return results;
   }
 
-  function looksLikeDerivativeTicker(ticker) {
-    // 나스닥 5자리 티커의 마지막 글자는 증권 종류를 뜻함: W=워런트, R=권리, U=유닛.
-    // 예: PSNYW(워런트), BPACR(권리) 등 일반 보통주가 아닌 파생 증권을 제외.
-    return ticker.length === 5 && /[WUR]$/.test(ticker);
+  async function getWatchlist() {
+    return fetchInBatches(MOCK_WATCHLIST, withLiveQuote);
   }
 
-  async function enrichAndFilterMovers(rawItems, limit) {
-    const candidates = (rawItems || []).filter((item) => !looksLikeDerivativeTicker(item.ticker));
-    const results = [];
-    for (let i = 0; i < candidates.length && results.length < limit; i += 5) {
-      const batch = candidates.slice(i, i + 5);
-      const enriched = await Promise.all(
-        batch.map(async (item) => {
-          const profile = await fetchCompanyProfile(item.ticker);
-          if (!profile || !profile.name) return null;
-          return {
-            ticker: item.ticker,
-            name: profile.name,
-            price: parseFloat(item.price),
-            changePercent: parseFloat(item.change_percentage),
-            changeAmount: parseFloat(item.change_amount),
-            volume: parseFloat(item.volume),
-            marketCap: profile.marketCap || null,
-            sector: profile.sector || "기타"
-          };
-        })
-      );
-      enriched.forEach((s) => {
-        if (s && results.length < limit) results.push(s);
-      });
-    }
-    if (results.length < limit) {
-      console.warn(`[dataService] 등록된 회사 정보가 있는 종목이 ${results.length}개만 확보됨 (목표 ${limit}개)`);
-    }
-    return results;
-  }
-
-  let moversIsLive = null; // null=아직 시도 전, true=실시간 스크리너, false=mock 폴백
-
-  function isMoversLive() {
-    return moversIsLive;
-  }
-
-  function fetchTopMoversScreener() {
-    if (!hasAlphaVantageKey()) {
-      moversIsLive = false;
-      return Promise.resolve(null);
-    }
-    if (moversScreenerPromise) return moversScreenerPromise;
-
-    moversScreenerPromise = (async () => {
-      try {
-        const res = await fetch(
-          `https://www.alphavantage.co/query?function=TOP_GAINERS_LOSERS&apikey=${ALPHA_VANTAGE_API_KEY}`
-        );
-        if (!res.ok) {
-          console.warn(`[dataService] 급상승/급하락 스크리너 조회 실패 (HTTP ${res.status}), mock 목록 사용`);
-          moversIsLive = false;
-          return null;
-        }
-        const data = await res.json();
-        if (!Array.isArray(data.top_gainers) || !Array.isArray(data.top_losers)) {
-          console.warn(`[dataService] 스크리너 응답에 데이터 없음(호출 한도 초과 가능), mock 목록 사용`, data);
-          moversIsLive = false;
-          return null;
-        }
-        const [gainers, losers] = await Promise.all([
-          enrichAndFilterMovers(data.top_gainers, 10),
-          enrichAndFilterMovers(data.top_losers, 10)
-        ]);
-        moversIsLive = true;
-        return { gainers, losers };
-      } catch (err) {
-        console.warn(`[dataService] 스크리너 조회 중 오류, mock 목록 사용`, err);
-        moversIsLive = false;
-        return null;
-      }
-    })();
-
-    return moversScreenerPromise;
-  }
-
-  async function getTopGainers() {
-    const live = await fetchTopMoversScreener();
-    if (live) return live.gainers;
-    return Promise.all(MOCK_GAINERS.map(withLiveQuote));
-  }
-
-  async function getTopLosers() {
-    const live = await fetchTopMoversScreener();
-    if (live) return live.losers;
-    return Promise.all(MOCK_LOSERS.map(withLiveQuote));
+  // 급상승/급하락은 더 이상 별도 API(Alpha Vantage TOP_GAINERS_LOSERS)에 의존하지
+  // 않는다 — 그 무료 티어는 하루 25회 한도인 데다, 실제로 확인해보니 데이터 자체가
+  // 며칠씩 묵어 있어(예: 실제 방문 당일보다 3일 전 데이터) "실시간"이라고 보기 어려웠다.
+  // 대신 이미 실시간으로 갱신되는 정규장 워치리스트(101개 종목) 안에서 등락률 기준
+  // 상/하위 N개를 뽑아 보여준다 — 시장 전체 스크리너는 아니지만 항상 오늘 데이터이고,
+  // 워치리스트 자동 갱신 주기를 그대로 물려받아 진짜로 실시간에 가깝게 갱신된다.
+  function computeMoversFromWatchlist(watchlistRows, limit) {
+    const withChange = watchlistRows.filter((s) => s.changePercent !== null && s.changePercent !== undefined);
+    const gainers = withChange
+      .filter((s) => s.changePercent > 0)
+      .sort((a, b) => b.changePercent - a.changePercent)
+      .slice(0, limit);
+    const losers = withChange
+      .filter((s) => s.changePercent < 0)
+      .sort((a, b) => a.changePercent - b.changePercent)
+      .slice(0, limit);
+    return { gainers, losers };
   }
 
   async function getStockDetail(ticker) {
@@ -410,8 +334,7 @@ const dataService = (function () {
 
   return {
     getWatchlist,
-    getTopGainers,
-    getTopLosers,
+    computeMoversFromWatchlist,
     getStockDetail,
     getNews,
     getEarnings,
@@ -420,7 +343,6 @@ const dataService = (function () {
     searchSymbols,
     getUsdKrwRate,
     getPriceHistory,
-    isMoversLive,
     wasSearchRateLimited
   };
 })();

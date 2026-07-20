@@ -7,9 +7,5 @@
 
 const FINNHUB_API_KEY = "d9e5b49r01qh241ahet0d9e5b49r01qh241ahetg";
 
-/* https://www.alphavantage.co/support/#api-key 에서 발급받은 키를 아래에 붙여넣으세요.
-   급상승/급하락 종목 스크리너(TOP_GAINERS_LOSERS)에 사용됩니다. 무료 티어는 하루 25회 제한. */
-const ALPHA_VANTAGE_API_KEY = "KXQY0MR4U33NCJ37";
-
 /* https://twelvedata.com/pricing 에서 발급 (무료 티어 하루 800회). 종목 상세의 차트 탭에 사용됩니다. */
 const TWELVE_DATA_API_KEY = "18939a75e0b94f7bbbac8b0ffd0805da";

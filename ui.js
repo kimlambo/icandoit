@@ -46,29 +46,31 @@ const ui = (function () {
     return { low: "낮음", medium: "보통", high: "높음" }[level] || level;
   }
 
-  function renderStockTable(tbodyEl, stocks, currencyMode, usdKrwRate) {
+  function renderStockTable(tbodyEl, stocks, currencyMode, usdKrwRate, changedTickers) {
     tbodyEl.innerHTML = stocks
-      .map(
-        (s) => `
+      .map((s) => {
+        const flashClass = changedTickers && changedTickers.get(s.ticker) ? ` price-flash-${changedTickers.get(s.ticker)}` : "";
+        return `
       <tr data-ticker="${s.ticker}">
         <td class="ticker-cell">${s.ticker}${s.nameKo ? ` <span class="ticker-name-ko">${s.nameKo}</span>` : ""}</td>
         <td class="name-cell">${s.name}</td>
         <td class="sector-cell">${s.sector ? `<span class="sector-tag">${s.sector}</span>` : "-"}</td>
-        <td class="num">${formatPriceDisplay(s.price, currencyMode, usdKrwRate)}</td>
+        <td class="num${flashClass}">${formatPriceDisplay(s.price, currencyMode, usdKrwRate)}</td>
         <td class="num ${priceChangeClass(s.changePercent)}">${formatPercent(s.changePercent)}</td>
         <td class="num">${formatVolume(s.volume)}</td>
         <td class="num">${formatMoney(s.marketCap)}</td>
-      </tr>`
-      )
+      </tr>`;
+      })
       .join("");
   }
 
-  function renderModalHeader(containerEl, stock, currencyMode, usdKrwRate) {
+  function renderModalHeader(containerEl, stock, currencyMode, usdKrwRate, flashDirection) {
+    const flashClass = flashDirection ? ` price-flash-${flashDirection}` : "";
     const priceRow =
       stock.price === null || stock.price === undefined
         ? `<span class="empty-state">가격 정보를 불러올 수 없습니다.</span>`
         : `
-        <span>${formatPriceDisplay(stock.price, currencyMode, usdKrwRate)}</span>
+        <span class="${flashClass.trim()}">${formatPriceDisplay(stock.price, currencyMode, usdKrwRate)}</span>
         <span class="${priceChangeClass(stock.changePercent)}">
           ${formatPercent(stock.changePercent)} (${stock.changeAmount >= 0 ? "+" : ""}${formatPriceDisplay(stock.changeAmount, currencyMode, usdKrwRate)})
         </span>`;
