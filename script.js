@@ -15,8 +15,10 @@
 
   const MOVERS_LIMIT = 15;
   const WATCHLIST_POLL_INTERVAL_MS = 5 * 60 * 1000;
+  const MOVERS_POLL_INTERVAL_MS = 15 * 60 * 1000;
   const MODAL_POLL_INTERVAL_MS = 15 * 1000;
   const MARKET_CLOSED_POLL_INTERVAL_MS = 30 * 60 * 1000;
+  let lastMoversFetchAt = 0;
 
   function renderTable(panel, changedTickers) {
     const sector = filterState[panel];
@@ -62,9 +64,30 @@
     clearTimeout(tableTimerHandle);
   }
 
-  // 정규장 워치리스트(101개 종목) 시세를 통째로 다시 받고, 급상승/급하락은 그 결과에서
-  // 등락률 상/하위 N개를 다시 뽑아 재계산한다(급상승/급하락 전용 API 호출은 없음 —
-  // 워치리스트가 이미 실시간이므로 거기서 파생시키는 쪽이 항상 최신이고 더 저렴하다).
+  // 시장 전체 급상승/급하락 스크리너(FMP)를 시도하고, 실패하면 워치리스트 파생 방식으로
+  // 조용히 폴백한다. 하루 250회 한도를 아끼기 위해 워치리스트보다 훨씬 느린 주기로 호출.
+  async function refreshMovers() {
+    const live = await dataService.fetchMarketMovers(MOVERS_LIMIT);
+    if (live) {
+      tableData.gainers = live.gainers;
+      tableData.losers = live.losers;
+    } else {
+      const fallback = dataService.computeMoversFromWatchlist(tableData.watchlist, MOVERS_LIMIT);
+      tableData.gainers = fallback.gainers;
+      tableData.losers = fallback.losers;
+    }
+    renderTable("gainers");
+    renderTable("losers");
+
+    const isLive = dataService.isMoversLive();
+    document.getElementById("gainers-live-note").classList.toggle("hidden", isLive !== false);
+    document.getElementById("losers-live-note").classList.toggle("hidden", isLive !== false);
+
+    lastMoversFetchAt = Date.now();
+  }
+
+  // 정규장 워치리스트(101개 종목) 시세를 통째로 다시 받는다. 급상승/급하락은 별도
+  // 주기(MOVERS_POLL_INTERVAL_MS)가 지났을 때만 같이 갱신한다.
   async function refreshMarketData() {
     if (refreshInFlight) return;
     refreshInFlight = true;
@@ -73,11 +96,9 @@
       const changedTickers = mergeQuotesIntoTableData("watchlist", freshRows);
       renderTable("watchlist", changedTickers);
 
-      const movers = dataService.computeMoversFromWatchlist(tableData.watchlist, MOVERS_LIMIT);
-      tableData.gainers = movers.gainers;
-      tableData.losers = movers.losers;
-      renderTable("gainers");
-      renderTable("losers");
+      if (Date.now() - lastMoversFetchAt >= MOVERS_POLL_INTERVAL_MS) {
+        await refreshMovers();
+      }
 
       setLastUpdated();
 
@@ -171,13 +192,8 @@
 
   async function loadAndRenderTables() {
     tableData.watchlist = await dataService.getWatchlist();
-    const movers = dataService.computeMoversFromWatchlist(tableData.watchlist, MOVERS_LIMIT);
-    tableData.gainers = movers.gainers;
-    tableData.losers = movers.losers;
-
     renderTable("watchlist");
-    renderTable("gainers");
-    renderTable("losers");
+    await refreshMovers();
   }
 
   function sortByColumn(panel, key) {

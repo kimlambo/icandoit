@@ -4,3 +4,6 @@ const FINNHUB_API_KEY = "";
 
 /* https://twelvedata.com/pricing 에서 발급 (무료 티어 하루 800회) */
 const TWELVE_DATA_API_KEY = "";
+
+/* https://site.financialmodelingprep.com 에서 발급 (무료 티어 하루 250회). 급상승/급하락에 사용됩니다. */
+const FMP_API_KEY = "";

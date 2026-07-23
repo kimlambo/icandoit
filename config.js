@@ -9,3 +9,8 @@ const FINNHUB_API_KEY = "d9e5b49r01qh241ahet0d9e5b49r01qh241ahetg";
 
 /* https://twelvedata.com/pricing 에서 발급 (무료 티어 하루 800회). 종목 상세의 차트 탭에 사용됩니다. */
 const TWELVE_DATA_API_KEY = "18939a75e0b94f7bbbac8b0ffd0805da";
+
+/* https://site.financialmodelingprep.com 에서 무료 가입 후 발급 (무료 티어 하루 250회).
+   급상승/급하락 종목(시장 전체 스크리너)에 사용됩니다. 15분 주기로 최대 2회씩만 호출하므로
+   하루 250회 한도 안에서 충분히 여유 있음. */
+const FMP_API_KEY = "ROkYLbECYaHd87V0aZyCmPzC4CtRo8XF";

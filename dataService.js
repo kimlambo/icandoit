@@ -19,6 +19,10 @@ const dataService = (function () {
     return typeof TWELVE_DATA_API_KEY !== "undefined" && !!TWELVE_DATA_API_KEY;
   }
 
+  function hasFmpKey() {
+    return typeof FMP_API_KEY !== "undefined" && !!FMP_API_KEY;
+  }
+
   function toDateStr(d) {
     return d.toISOString().slice(0, 10);
   }
@@ -199,12 +203,9 @@ const dataService = (function () {
     return fetchInBatches(MOCK_WATCHLIST, withLiveQuote);
   }
 
-  // 급상승/급하락은 더 이상 별도 API(Alpha Vantage TOP_GAINERS_LOSERS)에 의존하지
-  // 않는다 — 그 무료 티어는 하루 25회 한도인 데다, 실제로 확인해보니 데이터 자체가
-  // 며칠씩 묵어 있어(예: 실제 방문 당일보다 3일 전 데이터) "실시간"이라고 보기 어려웠다.
-  // 대신 이미 실시간으로 갱신되는 정규장 워치리스트(101개 종목) 안에서 등락률 기준
-  // 상/하위 N개를 뽑아 보여준다 — 시장 전체 스크리너는 아니지만 항상 오늘 데이터이고,
-  // 워치리스트 자동 갱신 주기를 그대로 물려받아 진짜로 실시간에 가깝게 갱신된다.
+  // 정규장 워치리스트(101개, 대형 우량주 위주) 안에서 등락률 상/하위 N개를 뽑는다.
+  // 시장 전체 스크리너가 아니라서 실제 "급상승 종목"(중·소형주 급등락)은 잡지 못하는
+  // 한계가 있다 — 아래 fetchMarketMovers(FMP)가 실패했을 때만 쓰는 폴백으로 강등.
   function computeMoversFromWatchlist(watchlistRows, limit) {
     const withChange = watchlistRows.filter((s) => s.changePercent !== null && s.changePercent !== undefined);
     const gainers = withChange
@@ -216,6 +217,92 @@ const dataService = (function () {
       .sort((a, b) => a.changePercent - b.changePercent)
       .slice(0, limit);
     return { gainers, losers };
+  }
+
+  function looksLikeDerivativeTicker(ticker) {
+    // 나스닥 5자리 티커의 마지막 글자는 증권 종류를 뜻함: W=워런트, R=권리, U=유닛.
+    // 예: PSNYW(워런트), BPACR(권리) 등 일반 보통주가 아닌 파생 증권을 제외.
+    return ticker.length === 5 && /[WUR]$/.test(ticker);
+  }
+
+  async function enrichMoverCandidates(rawItems, limit) {
+    const candidates = (rawItems || []).filter(
+      (item) =>
+        item &&
+        item.symbol &&
+        !looksLikeDerivativeTicker(item.symbol) &&
+        Math.abs(parseFloat(item.price)) >= 1 // 초저가(워런트/페니스톡 잡음) 제외
+    );
+    const results = [];
+    for (let i = 0; i < candidates.length && results.length < limit; i += 5) {
+      const batch = candidates.slice(i, i + 5);
+      const enriched = await Promise.all(
+        batch.map(async (item) => {
+          const profile = await fetchCompanyProfile(item.symbol);
+          return {
+            ticker: item.symbol,
+            name: item.name || (profile && profile.name) || item.symbol,
+            price: parseFloat(item.price),
+            changePercent: parseFloat(item.changesPercentage),
+            changeAmount: parseFloat(item.change),
+            volume: null,
+            marketCap: profile ? profile.marketCap : null,
+            sector: profile ? profile.sector : "기타"
+          };
+        })
+      );
+      enriched.forEach((s) => {
+        if (results.length < limit && !Number.isNaN(s.price) && !Number.isNaN(s.changePercent)) results.push(s);
+      });
+    }
+    return results;
+  }
+
+  let moversIsLive = null; // null=아직 시도 전, true=FMP 실시간 스크리너, false=워치리스트 파생 폴백
+
+  function isMoversLive() {
+    return moversIsLive;
+  }
+
+  // 시장 전체 급상승/급하락 스크리너 (Financial Modeling Prep, 무료 티어 하루 250회).
+  // 실패(키 없음/네트워크 오류/CORS/빈 응답)하면 null을 반환하고, 호출부가
+  // computeMoversFromWatchlist로 조용히 폴백한다.
+  async function fetchMarketMovers(limit) {
+    if (!hasFmpKey()) {
+      moversIsLive = false;
+      return null;
+    }
+    try {
+      const [gainersRes, losersRes] = await Promise.all([
+        fetch(`https://financialmodelingprep.com/stable/biggest-gainers?apikey=${FMP_API_KEY}`),
+        fetch(`https://financialmodelingprep.com/stable/biggest-losers?apikey=${FMP_API_KEY}`)
+      ]);
+      if (!gainersRes.ok || !losersRes.ok) {
+        console.warn(`[dataService] 급상승/급하락 스크리너 조회 실패 (HTTP ${gainersRes.status}/${losersRes.status})`);
+        moversIsLive = false;
+        return null;
+      }
+      const [gainersRaw, losersRaw] = await Promise.all([gainersRes.json(), losersRes.json()]);
+      if (!Array.isArray(gainersRaw) || !Array.isArray(losersRaw) || gainersRaw.length === 0) {
+        console.warn(`[dataService] 스크리너 응답에 데이터 없음(호출 한도 초과 가능)`, gainersRaw);
+        moversIsLive = false;
+        return null;
+      }
+      const [gainers, losers] = await Promise.all([
+        enrichMoverCandidates(gainersRaw, limit),
+        enrichMoverCandidates(losersRaw, limit)
+      ]);
+      if (gainers.length === 0 && losers.length === 0) {
+        moversIsLive = false;
+        return null;
+      }
+      moversIsLive = true;
+      return { gainers, losers };
+    } catch (err) {
+      console.warn(`[dataService] 스크리너 조회 중 오류`, err);
+      moversIsLive = false;
+      return null;
+    }
   }
 
   async function getStockDetail(ticker) {
@@ -335,6 +422,8 @@ const dataService = (function () {
   return {
     getWatchlist,
     computeMoversFromWatchlist,
+    fetchMarketMovers,
+    isMoversLive,
     getStockDetail,
     getNews,
     getEarnings,
